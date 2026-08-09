@@ -1,0 +1,341 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.45.15.27210",
+      "templateHash": "10360278923575293522"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Resource location."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "foundry-billing",
+      "metadata": {
+        "description": "Prefix used for resource names."
+      }
+    },
+    "staticWebAppSku": {
+      "type": "string",
+      "defaultValue": "Free",
+      "allowedValues": [
+        "Free",
+        "Standard"
+      ],
+      "metadata": {
+        "description": "Static Web App SKU."
+      }
+    },
+    "authenticationRequired": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable JWT authentication at API layer."
+      }
+    },
+    "authenticationTenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "Entra tenant ID used for JWT authority composition."
+      }
+    },
+    "authenticationAudience": {
+      "type": "string",
+      "metadata": {
+        "description": "Expected audience claim for API tokens."
+      }
+    },
+    "authenticationAuthority": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional explicit authority URL. Leave empty to compose from TenantId."
+      }
+    },
+    "foundryProvider": {
+      "type": "string",
+      "defaultValue": "Http",
+      "allowedValues": [
+        "Http"
+      ],
+      "metadata": {
+        "description": "Foundry provider name. IaC deployments require Http. Sample is development-only (local appsettings)."
+      }
+    },
+    "foundryEndpoint": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Endpoint used when foundryProvider=Http."
+      }
+    },
+    "foundryTenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Default tenant ID used for Foundry HTTP provider requests."
+      }
+    },
+    "foundrySubscriptionId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Default subscription ID used for Foundry HTTP provider requests."
+      }
+    },
+    "foundryEntraScope": {
+      "type": "string",
+      "defaultValue": "https://management.azure.com/.default",
+      "metadata": {
+        "description": "Entra scope used by API when calling Foundry HTTP provider. Empty disables outbound bearer token acquisition."
+      }
+    },
+    "foundryProjectsPath": {
+      "type": "string",
+      "defaultValue": "/projects",
+      "metadata": {
+        "description": "HTTP provider path for project listing."
+      }
+    },
+    "foundryBillingPathTemplate": {
+      "type": "string",
+      "defaultValue": "/projects/{projectId}/billing?period={period}",
+      "metadata": {
+        "description": "HTTP provider path template for billing summary."
+      }
+    },
+    "foundryCacheSeconds": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": {
+        "description": "Cache duration for provider responses."
+      }
+    },
+    "apiPlanSku": {
+      "type": "string",
+      "defaultValue": "B1",
+      "metadata": {
+        "description": "App Service plan SKU for API hosting."
+      }
+    },
+    "apiRuntime": {
+      "type": "string",
+      "defaultValue": "DOTNETCORE|10.0",
+      "metadata": {
+        "description": "Linux runtime for API hosting."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "static-web-app",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "name": {
+            "value": "[format('{0}-swa', parameters('namePrefix'))]"
+          },
+          "sku": {
+            "value": "[parameters('staticWebAppSku')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "14051001188888015624"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "sku": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/staticSites",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('sku')]",
+                "tier": "[parameters('sku')]"
+              },
+              "properties": {
+                "allowConfigFileUpdates": true
+              }
+            }
+          ],
+          "outputs": {
+            "defaultHostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/staticSites', parameters('name')), '2023-12-01').defaultHostname]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "api-hosting",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[parameters('namePrefix')]"
+          },
+          "planSku": {
+            "value": "[parameters('apiPlanSku')]"
+          },
+          "runtime": {
+            "value": "[parameters('apiRuntime')]"
+          },
+          "appSettings": {
+            "value": {
+              "ClientOrigin": "[format('https://{0}', reference(resourceId('Microsoft.Resources/deployments', 'static-web-app'), '2025-04-01').outputs.defaultHostname.value)]",
+              "Authentication__Required": "[string(parameters('authenticationRequired'))]",
+              "Authentication__TenantId": "[parameters('authenticationTenantId')]",
+              "Authentication__Audience": "[parameters('authenticationAudience')]",
+              "Authentication__Authority": "[parameters('authenticationAuthority')]",
+              "Foundry__Provider": "[parameters('foundryProvider')]",
+              "Foundry__Endpoint": "[parameters('foundryEndpoint')]",
+              "Foundry__TenantId": "[parameters('foundryTenantId')]",
+              "Foundry__SubscriptionId": "[parameters('foundrySubscriptionId')]",
+              "Foundry__EntraScope": "[parameters('foundryEntraScope')]",
+              "Foundry__ProjectsPath": "[parameters('foundryProjectsPath')]",
+              "Foundry__BillingPathTemplate": "[parameters('foundryBillingPathTemplate')]",
+              "Foundry__CacheSeconds": "[string(parameters('foundryCacheSeconds'))]"
+            }
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "13715709706149671686"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "namePrefix": {
+              "type": "string"
+            },
+            "planSku": {
+              "type": "string"
+            },
+            "runtime": {
+              "type": "string"
+            },
+            "appSettings": {
+              "type": "object"
+            }
+          },
+          "variables": {
+            "planName": "[format('{0}-api-plan', parameters('namePrefix'))]",
+            "apiAppName": "[format('{0}-api', parameters('namePrefix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('planName')]",
+              "location": "[parameters('location')]",
+              "kind": "linux",
+              "sku": {
+                "name": "[parameters('planSku')]",
+                "tier": "[parameters('planSku')]"
+              },
+              "properties": {
+                "reserved": true
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('apiAppName')]",
+              "location": "[parameters('location')]",
+              "kind": "app,linux",
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+                "httpsOnly": true,
+                "siteConfig": {
+                  "copy": [
+                    {
+                      "name": "appSettings",
+                      "count": "[length(objectKeys(parameters('appSettings')))]",
+                      "input": {
+                        "name": "[objectKeys(parameters('appSettings'))[copyIndex('appSettings')]]",
+                        "value": "[string(parameters('appSettings')[objectKeys(parameters('appSettings'))[copyIndex('appSettings')]])]"
+                      }
+                    }
+                  ],
+                  "linuxFxVersion": "[parameters('runtime')]",
+                  "alwaysOn": true
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "apiUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', variables('apiAppName')), '2023-12-01').defaultHostName)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'static-web-app')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "staticWebAppDefaultHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'static-web-app'), '2025-04-01').outputs.defaultHostname.value]"
+    },
+    "apiUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'api-hosting'), '2025-04-01').outputs.apiUrl.value]"
+    }
+  }
+}

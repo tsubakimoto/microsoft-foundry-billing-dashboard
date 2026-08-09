@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "foundry-billing"
+    },
+    "authenticationRequired": {
+      "value": true
+    },
+    "authenticationTenantId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "authenticationAudience": {
+      "value": "api://replace-with-api-app-id"
+    },
+    "authenticationAuthority": {
+      "value": ""
+    },
+    "foundryProvider": {
+      "value": "Http"
+    },
+    "foundryEndpoint": {
+      "value": "https://replace-with-foundry-endpoint"
+    },
+    "foundryTenantId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "foundrySubscriptionId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "foundryEntraScope": {
+      "value": "https://management.azure.com/.default"
+    }
+  }
+}

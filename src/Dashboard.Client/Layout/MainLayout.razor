@@ -1,0 +1,40 @@
+﻿@inherits LayoutComponentBase
+@inject IConfiguration Configuration
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (IsAuthenticationEnabled)
+            {
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="auth-status text-muted">Signed in as @context.User.Identity?.Name</span>
+                        <a href="authentication/logout">Log out</a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <span class="auth-status text-muted">Signed out</span>
+                        <a href="authentication/login">Log in</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <span class="auth-status text-muted">Sample mode (Authentication disabled)</span>
+            }
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private bool IsAuthenticationEnabled =>
+        Configuration.GetValue<bool>("Authentication:Enabled");
+}

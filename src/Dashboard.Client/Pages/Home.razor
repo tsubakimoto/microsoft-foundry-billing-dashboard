@@ -1,0 +1,183 @@
+﻿@page "/"
+@inject DashboardApiClient ApiClient
+
+<PageTitle>Billing Dashboard</PageTitle>
+
+<h1>Billing Dashboard</h1>
+<p class="text-muted">Microsoft Foundry billing overview.</p>
+
+@if (isLoadingProjects)
+{
+    <p><em>Loading projects...</em></p>
+}
+else if (!string.IsNullOrWhiteSpace(projectLoadError))
+{
+    <div class="alert alert-danger" role="alert">@projectLoadError</div>
+}
+else if (projects.Count == 0)
+{
+    <p>No projects found.</p>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="project-select">Project</label>
+            <select id="project-select" class="form-select" value="@selectedProjectId" @onchange="OnProjectChanged">
+                @foreach (var project in projects)
+                {
+                    <option value="@project.ProjectId">@project.DisplayName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="period-select">Period</label>
+            <select id="period-select" class="form-select" value="@selectedPeriodText" @onchange="OnPeriodChanged">
+                <option value="currentMonth">currentMonth</option>
+                <option value="previousMonth">previousMonth</option>
+            </select>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(billingError))
+{
+    <div class="alert alert-danger" role="alert">@billingError</div>
+}
+else if (isLoadingBilling)
+{
+    <p><em>Loading billing summary...</em></p>
+}
+else if (billingSummary is not null)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5 card-title">Total</h2>
+            <p class="display-6 mb-0">@billingSummary.TotalAmount.ToString("F2") @billingSummary.Currency</p>
+        </div>
+    </div>
+
+    @if (billingSummary.ModelItems.Count == 0)
+    {
+        <p>No model-level billing entries for this period.</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th class="text-end">Amount</th>
+                    <th>Currency</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in billingSummary.ModelItems)
+                {
+                    <tr>
+                        <td>@item.ModelName</td>
+                        <td class="text-end">@item.Amount.ToString("F2")</td>
+                        <td>@item.Currency</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+else if (projects.Count > 0)
+{
+    <p>Select a project to load billing data.</p>
+}
+
+@code {
+    private readonly List<ProjectSummary> projects = [];
+    private BillingSummary? billingSummary;
+    private string selectedProjectId = string.Empty;
+    private string selectedPeriodText = "currentMonth";
+    private bool isLoadingProjects = true;
+    private bool isLoadingBilling;
+    private string? projectLoadError;
+    private string? billingError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjectsAsync();
+        if (projects.Count > 0)
+        {
+            await LoadBillingAsync();
+        }
+    }
+
+    private async Task LoadProjectsAsync()
+    {
+        isLoadingProjects = true;
+        projectLoadError = null;
+
+        try
+        {
+            var loadedProjects = await ApiClient.GetProjectsAsync(CancellationToken.None);
+            projects.Clear();
+            projects.AddRange(loadedProjects);
+            selectedProjectId = projects.FirstOrDefault()?.ProjectId ?? string.Empty;
+        }
+        catch (AccessTokenNotAvailableException ex)
+        {
+            ex.Redirect();
+            return;
+        }
+        catch (ApiClientException ex)
+        {
+            projectLoadError = ex.Message;
+        }
+        finally
+        {
+            isLoadingProjects = false;
+        }
+    }
+
+    private async Task LoadBillingAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedProjectId))
+        {
+            billingSummary = null;
+            return;
+        }
+
+        isLoadingBilling = true;
+        billingError = null;
+
+        try
+        {
+            var period = selectedPeriodText == "previousMonth"
+                ? BillingPeriod.PreviousMonth
+                : BillingPeriod.CurrentMonth;
+            billingSummary = await ApiClient.GetBillingAsync(selectedProjectId, period, CancellationToken.None);
+        }
+        catch (AccessTokenNotAvailableException ex)
+        {
+            ex.Redirect();
+            return;
+        }
+        catch (ApiClientException ex)
+        {
+            billingSummary = null;
+            billingError = ex.Message;
+        }
+        finally
+        {
+            isLoadingBilling = false;
+        }
+    }
+
+    private async Task OnProjectChanged(ChangeEventArgs args)
+    {
+        selectedProjectId = args.Value?.ToString() ?? string.Empty;
+        await LoadBillingAsync();
+    }
+
+    private async Task OnPeriodChanged(ChangeEventArgs args)
+    {
+        selectedPeriodText = args.Value?.ToString() ?? "currentMonth";
+        await LoadBillingAsync();
+    }
+}

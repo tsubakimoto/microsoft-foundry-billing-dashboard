@@ -1,0 +1,29 @@
+name: build-and-test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Dashboard.sln
+
+      - name: Build
+        run: dotnet build Dashboard.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Dashboard.sln --configuration Release --no-build

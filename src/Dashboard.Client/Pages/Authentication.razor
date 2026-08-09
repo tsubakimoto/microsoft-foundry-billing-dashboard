@@ -1,0 +1,23 @@
+@page "/authentication/{action}"
+@inject IConfiguration Configuration
+
+<PageTitle>Authentication</PageTitle>
+
+@if (IsAuthenticationEnabled)
+{
+    <RemoteAuthenticatorView Action="@Action" />
+}
+else
+{
+    <div class="alert alert-info" role="alert">
+        Authentication is disabled in this environment.
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Action { get; set; }
+
+    private bool IsAuthenticationEnabled =>
+        Configuration.GetValue<bool>("Authentication:Enabled");
+}
