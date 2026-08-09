@@ -115,6 +115,85 @@ az bicep install
 
 ---
 
+### 0. Entra ID アプリ登録の準備（`authenticationAudience` の決定）
+
+`authenticationRequired=true` でデプロイする場合、API が受け付ける JWT の **Audience (`aud` クレーム)** を事前に決定する必要があります。  
+以下の手順で Entra ID にアプリ登録を作成し、`authenticationAudience` に設定する URI を確定してください。
+
+#### 0-1. API 用アプリ登録の作成
+
+1. [Azure Portal](https://portal.azure.com) → **Microsoft Entra ID** → **アプリの登録** → **新規登録** を選択
+2. 名前を入力（例: `foundry-billing-api`）し、**サポートされているアカウントの種類** を組織の要件に合わせて選択
+3. **登録** をクリック
+
+#### 0-2. アプリケーション (クライアント) ID の確認
+
+登録後の **概要** ページに表示される **アプリケーション (クライアント) ID** を控えます。  
+以降の手順でこの ID を `<API アプリのクライアント ID>` として使用します。
+
+```
+例: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+#### 0-3. アプリケーション ID URI の設定
+
+1. 左メニュー → **API の公開** を選択
+2. **アプリケーション ID URI** の横にある **設定** をクリック
+3. 既定値 `api://<API アプリのクライアント ID>` のまま **保存** する
+
+> この URI が `authenticationAudience` に設定する値、かつトークンの `aud` クレームと一致しなければなりません。  
+> カスタム URI に変更した場合は、以降の設定すべてに変更後の URI を使用してください。
+
+#### 0-4. 委任スコープの追加とクライアントへの API アクセス許可
+
+**委任スコープの追加 (API 用アプリ登録)**:
+
+1. **API の公開** → **スコープの追加** をクリック
+2. スコープ名: `access_as_user`（任意）、同意: **管理者とユーザー**、表示名・説明を入力して **スコープの追加** をクリック
+
+**クライアントアプリへの API アクセス許可付与 (Client 用アプリ登録)**:
+
+1. Client 用アプリ登録（または同一登録を使用する場合は同じ登録）を開く
+2. **API のアクセス許可** → **アクセス許可の追加** → **自分の API** タブ
+3. `foundry-billing-api` を選択し、`access_as_user` スコープにチェックを入れて **アクセス許可の追加** をクリック
+4. 必要に応じて **管理者の同意を与える** をクリック
+
+#### 0-5. トークンの `aud` クレームの確認
+
+クライアントが API に送るアクセストークンの `aud` クレームは、スコープに指定した **アプリケーション ID URI** (`api://<API アプリのクライアント ID>`) になります。  
+API 側の `Authentication:Audience` と完全に一致していることを確認してください。
+
+- 一致している場合 → API が 200 を返す  
+- **一致していない場合 → API は 401 Unauthorized を返します**
+
+トークンの中身は [jwt.ms](https://jwt.ms) などで確認できます（`aud` フィールドを参照）。
+
+#### 0-6. `authenticationAudience` への設定
+
+手順 0-3 で確定したアプリケーション ID URI を `infra/parameters/main.parameters.json` の `authenticationAudience` に設定します。
+
+```jsonc
+"authenticationAudience": {
+  "value": "api://<API アプリのクライアント ID>"
+  // 例: "api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+同じ URI を API の `appsettings.json` の `Authentication:Audience` にも設定します（ローカル実行時）:
+
+```jsonc
+"Authentication": {
+  "Audience": "api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+> **⚠️ 秘密情報のコミット禁止**  
+> テナント ID・クライアント ID・スコープ URI など、実際の値を含むパラメーターファイルや `appsettings` ファイルは **Git にコミットしないでください**。  
+> `infra/parameters/main.parameters.json` に実際の値を入力した場合は必ず `.gitignore` に追加してください。  
+> ローカル開発では `appsettings.Development.json`（Git 管理外）に記載するか、環境変数 / User Secrets を使用してください。
+
+---
+
 ### 1. パラメーターファイルの準備
 
 `infra/parameters/main.parameters.json` をコピーして、プレースホルダーを実際の値に置き換えます。  
@@ -135,7 +214,8 @@ az bicep install
       "value": "<Entra テナント ID>"       // 例: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     },
     "authenticationAudience": {
-      "value": "api://<API アプリの App ID>" // 例: api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      "value": "api://<API アプリのクライアント ID>" // 手順 0 で確定したアプリケーション ID URI
+                                                    // 例: api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     },
     "authenticationAuthority": {
       "value": ""                          // 空の場合は authenticationTenantId から自動構成
@@ -279,7 +359,7 @@ az webapp deploy \
 - [ ] `az deployment group show` で `provisioningState` が `Succeeded` になっている
 - [ ] Static Web Apps の URL (`staticWebAppDefaultHostname`) にブラウザでアクセスできる
 - [ ] API の URL (`apiUrl`) に対して `GET /api/projects` が正常に応答する
-- [ ] API が 401 を返す場合、`authenticationRequired` と Entra アプリ登録の設定を確認する
+- [ ] API が 401 を返す場合、`authenticationAudience`（`api://<API アプリのクライアント ID>`）が Entra ID の **アプリケーション ID URI** および API の `Authentication:Audience` と完全に一致しているか確認する（手順 0 参照）
 - [ ] API のアプリ設定（`Foundry__Endpoint` など）が Azure ポータルで正しく設定されている
 - [ ] `Foundry__Provider` が `Http` になっており、`Sample` になっていないことを確認する
 
