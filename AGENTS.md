@@ -61,3 +61,29 @@ flowchart LR
 - 子として呼ばれるエージェントは `disable-model-invocation: false` にします。`true` にすると親から呼び出せません。
 - `review-*` は `user-invocable: false` としてユーザーのエージェント一覧に出さず、`review` 経由でのみ実行します。
 - `review-*` は `tools` に `agent` を含めないため、これ以上ネストしません（葉ノード）。
+
+## アプリ概要
+
+- Microsoft Foundryプロジェクトにデプロイしている各モデルの課金状況を確認できるダッシュボード
+- Entra ID認証必須
+- 指定のテナントおよびサブスクリプションに存在するMicrosoft Foundryプロジェクトを一覧表示
+- 選択されたMicrosoft Foundryプロジェクトの課金状況を表示
+    - 全モデルの合計利用金額
+    - 各モデルの利用金額
+- 表示期間の指定が可能（当月、前月）
+
+## Technical Details
+
+- Framework: C#, .NET 10, ASP.NET Core 10 Blazor WebAssembly
+- Hosting: Azure Static Web Apps
+- IaC: Bicep
+- Billing source: Microsoft Foundry
+
+## Using agent tools in development
+
+- Plugins
+  - dotnet-agent-skills
+- MCPs
+  - Microsoft Learn MCP Server
+- Skills
+  - microsoft-foundry
