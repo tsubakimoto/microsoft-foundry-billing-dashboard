@@ -846,3 +846,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.tom
+
+# ------------------------
+# Bicep
+# ------------------------
+
+# Parameter files
+main.parameters.json
